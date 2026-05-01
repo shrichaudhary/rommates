@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- CDN importmap – resolves bare imports (firebase/*, chart.js) to CDN URLs.
+       No npm, no bundler required. Works in all modern browsers. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app":       "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+      "firebase/auth":      "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js",
+      "chart.js":           "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/+esm"
+    }
+  }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="RoomSync – Real-time roommate expense manager. Split bills, track payments, and settle up effortlessly." />
+  <meta name="theme-color" content="#6c63ff" />
+  <meta property="og:title" content="RoomSync – Roommate Expense Manager" />
+  <meta property="og:description" content="Split bills, track payments, and settle up with your roommates in real time." />
+  <meta property="og:type" content="website" />
+  <title>RoomSync – Roommate Expense Manager</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <!-- Toast Container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-logo">
+      <span class="loading-icon">🏠</span>
+      <h1>RoomSync</h1>
+      <div class="loading-spinner"></div>
+    </div>
+  </div>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="screen hidden">
+    <div class="auth-container">
+      <div class="auth-brand">
+        <span class="brand-icon">🏠</span>
+        <h1 class="brand-name">RoomSync</h1>
+        <p class="brand-tagline">Shared living made simple</p>
+      </div>
+
+      <div class="auth-card glass">
+        <div class="auth-tabs">
+          <button id="tab-signin" class="auth-tab active" aria-selected="true">Sign In</button>
+          <button id="tab-signup" class="auth-tab" aria-selected="false">Sign Up</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form id="signin-form" class="auth-form" novalidate>
+          <div class="form-group">
+            <label for="signin-email">Email</label>
+            <input type="email" id="signin-email" placeholder="you@example.com" required aria-required="true" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="signin-password">Password</label>
+            <input type="password" id="signin-password" placeholder="••••••••" required aria-required="true" autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-signin">Sign In</button>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form id="signup-form" class="auth-form hidden" novalidate>
+          <div class="form-group">
+            <label for="signup-name">Display Name</label>
+            <input type="text" id="signup-name" placeholder="Your name" required aria-required="true" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="signup-email">Email</label>
+            <input type="email" id="signup-email" placeholder="you@example.com" required aria-required="true" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input type="password" id="signup-password" placeholder="Min 6 characters" required aria-required="true" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-signup">Create Account</button>
+        </form>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <button id="btn-google" class="btn btn-google btn-full" aria-label="Sign in with Google">
+          <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <p id="join-notice" class="join-notice hidden">
+          🎉 You've been invited to join a house! Sign in or create an account to join automatically.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Screen -->
+  <div id="app-screen" class="screen hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar glass" role="navigation" aria-label="Main navigation">
+      <div class="sidebar-header">
+        <span class="brand-icon-sm">🏠</span>
+        <span class="brand-name-sm">RoomSync</span>
+        <button id="btn-theme-toggle" class="btn-icon" aria-label="Toggle dark/light mode" title="Toggle theme">🌙</button>
+      </div>
+
+      <div id="house-info" class="house-info"></div>
+
+      <nav class="sidebar-nav" aria-label="App sections">
+        <button class="nav-item active" data-view="dashboard" aria-label="Dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </button>
+        <button class="nav-item" data-view="expenses" aria-label="Expenses">
+          <span class="nav-icon">💰</span> Expenses
+        </button>
+        <button class="nav-item" data-view="payments" aria-label="Payments">
+          <span class="nav-icon">💳</span> Payments
+        </button>
+        <button class="nav-item" data-view="roommates" aria-label="Roommates">
+          <span class="nav-icon">👥</span> Roommates
+        </button>
+        <button class="nav-item" data-view="activity" aria-label="Activity Feed">
+          <span class="nav-icon">📋</span> Activity
+        </button>
+      </nav>
+
+      <div class="sidebar-actions">
+        <button id="btn-invite" class="btn btn-secondary btn-sm" aria-label="Invite roommates">
+          🔗 Invite Link
+        </button>
+        <button id="btn-export" class="btn btn-secondary btn-sm" aria-label="Export data">
+          📤 Export
+        </button>
+        <label for="import-file" class="btn btn-secondary btn-sm" style="cursor:pointer;" aria-label="Import data">
+          📥 Import
+        </label>
+        <input type="file" id="import-file" accept=".json" class="hidden" aria-label="Import JSON file" />
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="user-info" class="user-info"></div>
+        <button id="btn-signout" class="btn btn-ghost btn-sm" aria-label="Sign out">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Mobile Nav Toggle -->
+    <button id="btn-menu-toggle" class="btn-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content" role="main">
+
+      <!-- House Setup View (when no house) -->
+      <div id="view-house-setup" class="view hidden">
+        <div class="view-center">
+          <div class="setup-card glass">
+            <h1>Welcome to RoomSync 🏠</h1>
+            <p>Create your house or join one with an invite link.</p>
+            <form id="create-house-form" novalidate>
+              <div class="form-group">
+                <label for="house-name">House Name</label>
+                <input type="text" id="house-name" placeholder="e.g. Apartment 4B" required aria-required="true" />
+              </div>
+              <button type="submit" class="btn btn-primary btn-full" id="btn-create-house">🏠 Create House</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard View -->
+      <div id="view-dashboard" class="view hidden">
+        <header class="view-header">
+          <h1>Dashboard</h1>
+          <div class="header-actions">
+            <select id="month-filter" class="select-input" aria-label="Filter by month">
+              <option value="all">All Time</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card glass" id="stat-total-spent">
+            <div class="stat-icon">💸</div>
+            <div class="stat-label">Total Spent</div>
+            <div class="stat-value" id="stat-total-value">₹0.00</div>
+          </div>
+          <div class="stat-card glass" id="stat-my-share">
+            <div class="stat-icon">📊</div>
+            <div class="stat-label">My Share</div>
+            <div class="stat-value" id="stat-myshare-value">₹0.00</div>
+          </div>
+          <div class="stat-card glass" id="stat-i-paid">
+            <div class="stat-icon">✅</div>
+            <div class="stat-label">I Paid</div>
+            <div class="stat-value" id="stat-ipaid-value">₹0.00</div>
+          </div>
+          <div class="stat-card glass" id="stat-net">
+            <div class="stat-icon" id="stat-net-icon">⚖️</div>
+            <div class="stat-label">Net Balance</div>
+            <div class="stat-value" id="stat-net-value">₹0.00</div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="glass chart-card">
+            <h2>Expense Breakdown</h2>
+            <div class="chart-container">
+              <canvas id="balance-chart" aria-label="Balance pie chart" role="img"></canvas>
+            </div>
+          </div>
+
+          <div class="glass balances-card">
+            <h2>Balances</h2>
+            <div id="balances-list" class="balances-list"></div>
+            <div class="settle-actions">
+              <button id="btn-settle-all" class="btn btn-success btn-sm" aria-label="Settle all debts">⚡ Settle All</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass debts-card">
+          <h2>Suggested Settlements</h2>
+          <div id="debts-list" class="debts-list"></div>
+        </div>
+
+        <div class="glass recent-card">
+          <h2>Recent Expenses</h2>
+          <div id="recent-expenses-list" class="expenses-list"></div>
+        </div>
+      </div>
+
+      <!-- Expenses View -->
+      <div id="view-expenses" class="view hidden">
+        <header class="view-header">
+          <h1>Expenses</h1>
+          <div class="header-actions">
+            <select id="expense-month-filter" class="select-input" aria-label="Filter expenses by month">
+              <option value="all">All Time</option>
+            </select>
+            <select id="expense-category-filter" class="select-input" aria-label="Filter by category">
+              <option value="all">All Categories</option>
+              <option value="groceries">🛒 Groceries</option>
+              <option value="utilities">⚡ Utilities</option>
+              <option value="rent">🏠 Rent</option>
+              <option value="entertainment">🎉 Entertainment</option>
+              <option value="transport">🚗 Transport</option>
+              <option value="food">🍕 Food</option>
+              <option value="other">📦 Other</option>
+            </select>
+            <button id="btn-add-expense" class="btn btn-primary" aria-label="Add new expense">+ Add Expense</button>
+          </div>
+        </header>
+        <div id="expenses-list" class="expenses-list card-list"></div>
+      </div>
+
+      <!-- Payments View -->
+      <div id="view-payments" class="view hidden">
+        <header class="view-header">
+          <h1>Payments</h1>
+          <div class="header-actions">
+            <button id="btn-add-payment" class="btn btn-primary" aria-label="Add new payment">+ Record Payment</button>
+          </div>
+        </header>
+        <div id="payments-list" class="payments-list card-list"></div>
+      </div>
+
+      <!-- Roommates View -->
+      <div id="view-roommates" class="view hidden">
+        <header class="view-header">
+          <h1>Roommates</h1>
+          <div class="header-actions">
+            <button id="btn-add-roommate" class="btn btn-primary" aria-label="Add roommate">+ Add Member</button>
+          </div>
+        </header>
+        <div id="roommates-grid" class="roommates-grid"></div>
+      </div>
+
+      <!-- Activity View -->
+      <div id="view-activity" class="view hidden">
+        <header class="view-header">
+          <h1>Activity Feed</h1>
+        </header>
+        <div id="activity-list" class="activity-list card-list"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ===== MODALS ===== -->
+
+  <!-- Expense Modal -->
+  <div id="modal-expense" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-expense-title">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h2 id="modal-expense-title">Add Expense</h2>
+        <button class="btn-close" data-modal="modal-expense" aria-label="Close modal">✕</button>
+      </div>
+      <form id="expense-form" novalidate>
+        <input type="hidden" id="expense-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expense-desc">Description *</label>
+            <input type="text" id="expense-desc" placeholder="e.g. Monthly groceries" required aria-required="true" />
+          </div>
+          <div class="form-group">
+            <label for="expense-amount">Amount (₹) *</label>
+            <input type="number" id="expense-amount" placeholder="0.00" step="0.01" min="0.01" required aria-required="true" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expense-payer">Paid By *</label>
+            <select id="expense-payer" required aria-required="true"></select>
+          </div>
+          <div class="form-group">
+            <label for="expense-date">Date *</label>
+            <input type="date" id="expense-date" required aria-required="true" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expense-category">Category</label>
+            <select id="expense-category" aria-label="Expense category">
+              <option value="other">📦 Other</option>
+              <option value="groceries">🛒 Groceries</option>
+              <option value="utilities">⚡ Utilities</option>
+              <option value="rent">🏠 Rent</option>
+              <option value="entertainment">🎉 Entertainment</option>
+              <option value="transport">🚗 Transport</option>
+              <option value="food">🍕 Food</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expense-split">Split Type</label>
+            <select id="expense-split" aria-label="Split type">
+              <option value="equal">Equal</option>
+              <option value="unequal">Unequal</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="expense-recurring" aria-label="Mark as recurring monthly" />
+            🔁 Recurring monthly expense
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Participants *</label>
+          <div id="expense-participants" class="checkboxes-grid" role="group" aria-label="Select participants"></div>
+        </div>
+        <div id="unequal-splits" class="hidden">
+          <div class="form-group">
+            <label>Individual Amounts</label>
+            <div id="split-amounts" class="split-amounts"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="expense-receipt">Receipt Image (max 200 KB)</label>
+          <div class="receipt-upload">
+            <input type="file" id="expense-receipt" accept="image/*" aria-label="Upload receipt image" />
+            <span id="receipt-status" class="receipt-status"></span>
+          </div>
+          <div id="receipt-preview" class="receipt-preview hidden">
+            <img id="receipt-img" src="" alt="Receipt preview" />
+            <button type="button" id="btn-remove-receipt" class="btn btn-ghost btn-sm" aria-label="Remove receipt">✕ Remove</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-modal="modal-expense">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-expense">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div id="modal-payment" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-payment-title">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h2 id="modal-payment-title">Record Payment</h2>
+        <button class="btn-close" data-modal="modal-payment" aria-label="Close modal">✕</button>
+      </div>
+      <form id="payment-form" novalidate>
+        <input type="hidden" id="payment-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label for="payment-from">From *</label>
+            <select id="payment-from" required aria-required="true"></select>
+          </div>
+          <div class="form-group">
+            <label for="payment-to">To *</label>
+            <select id="payment-to" required aria-required="true"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="payment-amount">Amount (₹) *</label>
+            <input type="number" id="payment-amount" placeholder="0.00" step="0.01" min="0.01" required aria-required="true" />
+          </div>
+          <div class="form-group">
+            <label for="payment-date">Date *</label>
+            <input type="date" id="payment-date" required aria-required="true" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="payment-note">Note</label>
+          <input type="text" id="payment-note" placeholder="Optional note..." />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-modal="modal-payment">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-payment">Save Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Roommate Modal -->
+  <div id="modal-roommate" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-roommate-title">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h2 id="modal-roommate-title">Add Roommate</h2>
+        <button class="btn-close" data-modal="modal-roommate" aria-label="Close modal">✕</button>
+      </div>
+      <form id="roommate-form" novalidate>
+        <div class="form-group">
+          <label for="roommate-name">Name *</label>
+          <input type="text" id="roommate-name" placeholder="Roommate's name" required aria-required="true" />
+        </div>
+        <div class="form-group">
+          <label for="roommate-email">Email (optional)</label>
+          <input type="email" id="roommate-email" placeholder="roommate@example.com" autocomplete="off" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-modal="modal-roommate">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-roommate">Add Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="modal-confirm" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal modal-sm glass">
+      <div class="modal-header">
+        <h2 id="confirm-title">Confirm Action</h2>
+      </div>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="modal-actions">
+        <button id="btn-confirm-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-confirm-ok" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Modal -->
+  <div id="modal-invite" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-invite-title">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h2 id="modal-invite-title">Invite Roommates</h2>
+        <button class="btn-close" data-modal="modal-invite" aria-label="Close modal">✕</button>
+      </div>
+      <p>Share this link with your roommates. Anyone who opens it and signs in will be added to your house automatically.</p>
+      <div class="invite-link-box">
+        <input type="text" id="invite-link-input" readonly aria-label="Invite link" />
+        <button id="btn-copy-link" class="btn btn-primary" aria-label="Copy invite link">Copy</button>
+      </div>
+      <div class="join-code-display">
+        <span>Join Code:</span>
+        <strong id="join-code-text"></strong>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ───────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isHouseMember(houseId) {
+      return isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/houses/$(houseId)).data.memberUids;
+    }
+
+    function receiptWithinLimit() {
+      return !('receiptBase64' in request.resource.data) ||
+        request.resource.data.receiptBase64 == null ||
+        request.resource.data.receiptBase64.size() <= 272144; // ~200 KB in base64
+    }
+
+    // ── User documents ─────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── House documents ────────────────────────────────────────────────────
+    match /houses/{houseId} {
+      // Any signed-in user can read a house (needed for joinCode lookup)
+      allow read: if isSignedIn();
+      // Only signed-in users can create a house
+      allow create: if isSignedIn() &&
+        request.resource.data.creatorUid == request.auth.uid;
+      // Only members can update the house doc (e.g., adding themselves)
+      allow update: if isHouseMember(houseId);
+      // Only creator can delete the house
+      allow delete: if isSignedIn() &&
+        resource.data.creatorUid == request.auth.uid;
+
+      // ── Roommates sub-collection ─────────────────────────────────────────
+      match /roommates/{roommateId} {
+        allow read: if isHouseMember(houseId);
+        // User can add themselves; house creator can add anyone
+        allow create: if isSignedIn() && (
+          roommateId == request.auth.uid ||
+          get(/databases/$(database)/documents/houses/$(houseId)).data.creatorUid == request.auth.uid
+        );
+        // Only the user themselves or house creator can delete
+        allow delete: if isSignedIn() && (
+          roommateId == request.auth.uid ||
+          get(/databases/$(database)/documents/houses/$(houseId)).data.creatorUid == request.auth.uid
+        );
+        allow update: if isHouseMember(houseId);
+      }
+
+      // ── Expenses sub-collection ──────────────────────────────────────────
+      match /expenses/{expenseId} {
+        allow read: if isHouseMember(houseId);
+        // Any house member can create an expense
+        allow create: if isHouseMember(houseId) &&
+          request.resource.data.creatorUid == request.auth.uid &&
+          receiptWithinLimit();
+        // Only the creator can update or delete
+        allow update: if isHouseMember(houseId) &&
+          resource.data.creatorUid == request.auth.uid &&
+          receiptWithinLimit();
+        allow delete: if isHouseMember(houseId) &&
+          resource.data.creatorUid == request.auth.uid;
+      }
+
+      // ── Payments sub-collection ──────────────────────────────────────────
+      match /payments/{paymentId} {
+        allow read: if isHouseMember(houseId);
+        // Any house member can record a payment
+        allow create: if isHouseMember(houseId) &&
+          request.resource.data.creatorUid == request.auth.uid;
+        // Only the creator can update or delete
+        allow update: if isHouseMember(houseId) &&
+          resource.data.creatorUid == request.auth.uid;
+        allow delete: if isHouseMember(houseId) &&
+          resource.data.creatorUid == request.auth.uid;
+      }
+    }
+  }
+}
